@@ -191,11 +191,34 @@ textarea:focus-visible {
 
 .diff-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 14px;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
+}
+
+.diff-table th:nth-child(1),
+.diff-table td:nth-child(1) {
+  width: 18%;
+}
+
+.diff-table th:nth-child(2),
+.diff-table td:nth-child(2) {
+  width: 19%;
+}
+
+.diff-table th:nth-child(3),
+.diff-table td:nth-child(3) {
+  width: 34%;
+}
+
+.diff-table th:nth-child(4),
+.diff-table td:nth-child(4),
+.diff-table th:nth-child(5),
+.diff-table td:nth-child(5) {
+  width: 14.5%;
 }
 
 .diff-table th,
@@ -219,7 +242,13 @@ textarea:focus-visible {
   font-family: var(--mono);
   font-size: 13px;
   color: var(--text-h);
-  white-space: nowrap;
+  word-break: break-all;
+}
+
+.diff-table td.section,
+.diff-table td.explanation {
+  font-size: 13px;
+  color: var(--text);
 }
 
 .diff-table tr:last-child td {

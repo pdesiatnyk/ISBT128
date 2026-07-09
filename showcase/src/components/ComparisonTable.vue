@@ -35,6 +35,8 @@ function formatValue(value: FlatValue): string {
       <thead>
         <tr>
           <th>Field</th>
+          <th>Section</th>
+          <th>Explanation</th>
           <th>{{ leftLabel }}</th>
           <th>{{ rightLabel }}</th>
         </tr>
@@ -42,11 +44,13 @@ function formatValue(value: FlatValue): string {
       <tbody>
         <tr v-for="row in visibleRows" :key="row.path" :class="{ mismatch: !row.match }">
           <td class="path">{{ row.path }}</td>
+          <td class="section">{{ row.section }}</td>
+          <td class="explanation">{{ row.explanation }}</td>
           <td>{{ formatValue(row.left) }}</td>
           <td>{{ formatValue(row.right) }}</td>
         </tr>
         <tr v-if="visibleRows.length === 0">
-          <td colspan="3" class="empty">No fields to compare yet.</td>
+          <td colspan="5" class="empty">No fields to compare yet.</td>
         </tr>
       </tbody>
     </table>
