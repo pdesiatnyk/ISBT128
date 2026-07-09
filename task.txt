@@ -1,0 +1,15 @@
+create a prompt for following task:
+the goal of this project is to implement a parser of iccbba/isbt128 barcode in 2 versions (c# and ts)
+apart from main logic i need 2 main methods i will use: 
+	check - returns bool if provided string is a valid iccbba/isbt128 barcode
+	parse - parse the barcode and return structured object with all the fields (it should be able to parse complex real life barcodes, not only specific sections of standard)
+
+but, before working on implementation the documents in documents folder should be analyzed (it is a documentation of standard)
+if something should be clarified or doc info is not complete - ask to user
+
+all files you download or create should be inside project folder in .claude folder
+
+also, implementation should be documented considering standard specification
+git repo is already initiated, create a readme and gitignore if needed
+
+ts version should use eslint for code quality

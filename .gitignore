@@ -1,0 +1,20 @@
+# .NET
+csharp/**/bin/
+csharp/**/obj/
+*.user
+
+# Node / TypeScript
+typescript/node_modules/
+typescript/dist/
+typescript/*.tsbuildinfo
+
+# Editors / OS
+.vs/
+.vscode/
+*.suo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

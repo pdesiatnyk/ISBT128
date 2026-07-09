@@ -1,0 +1,42 @@
+{
+  "name": "@iccbba/isbt128-parser",
+  "version": "0.1.0",
+  "description": "Parser and validator for ICCBBA/ISBT 128 barcodes (check/parse), including SEC (ST-012) and MPHO/UDI (ST-017) supplements.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "keywords": [
+    "isbt128",
+    "iccbba",
+    "barcode",
+    "blood",
+    "tissue",
+    "udi"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "eslint": "^9.15.0",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.15.0",
+    "vitest": "^2.1.4"
+  }
+}
