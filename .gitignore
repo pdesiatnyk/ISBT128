@@ -4,9 +4,11 @@ csharp/**/obj/
 *.user
 
 # Node / TypeScript
+/node_modules/
 typescript/node_modules/
 typescript/dist/
 typescript/*.tsbuildinfo
+showcase/dist/
 
 # Editors / OS
 .vs/

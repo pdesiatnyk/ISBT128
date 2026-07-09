@@ -1,0 +1,8 @@
+{
+  "name": "iccbba-isbt128-workspace",
+  "private": true,
+  "workspaces": [
+    "typescript",
+    "showcase"
+  ]
+}

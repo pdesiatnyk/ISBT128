@@ -21,6 +21,9 @@ Implementation is derived from four source documents in `documents/`:
 
 The implementation prompt used to drive this work is at
 [`.claude/prompts/isbt128-parser-implementation-prompt.md`](.claude/prompts/isbt128-parser-implementation-prompt.md).
+A full per-data-structure cross-reference (standard section ↔ C# location ↔ TS location ↔ decode
+status) is at
+[`.claude/spec/data-structure-map.md`](.claude/spec/data-structure-map.md).
 
 ## Data structure coverage
 
@@ -91,7 +94,9 @@ Both libraries export these as standalone utilities, per ST-001 Appendix A and S
 /documents/       Source ISBT 128 standard documents (ST-001, ST-012, ST-017, RT019)
 /.claude/         Implementation prompt and working spec notes
 /csharp/          Iccbba.Isbt128 class library (.NET 8) + Iccbba.Isbt128.Tests (xUnit)
+                   + Iccbba.Isbt128.Api (minimal API exposing the C# parser over HTTP)
 /typescript/      @iccbba/isbt128-parser (TypeScript 5.x / Node 20+) + vitest + ESLint
+/showcase/        Vite + Vue 3 + TS app comparing both parsers' output for a given barcode
 ```
 
 ## Building and testing
@@ -111,6 +116,25 @@ npm run build       # tsc
 npm run typecheck    # tsc --noEmit (includes tests)
 npm run lint         # eslint
 npm test             # vitest
+```
+
+## Showcase app
+
+`showcase/` is a small internal tool for eyeballing whether the C# and TypeScript parsers agree
+on a given barcode: pick a sample serial (or type your own) and see both parsers' output
+side by side in a field-by-field diff table. The TS parser runs directly in the browser
+(imported from `typescript/` via an npm workspace); the C# parser is called over HTTP through
+`csharp/Iccbba.Isbt128.Api`, a thin ASP.NET Core minimal API that didn't previously exist since
+the C# library was class-library-only.
+
+Run both halves (from the repo root, in two terminals):
+
+```
+dotnet run --project csharp/Iccbba.Isbt128.Api    # C# API on http://localhost:5080
+
+npm install                                        # sets up the npm workspace (repo root + showcase)
+npm run build --workspace=typescript               # builds the TS parser package the showcase imports
+npm run dev --workspace=showcase                   # showcase UI on http://localhost:5173
 ```
 
 ## Naming / versioning

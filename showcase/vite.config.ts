@@ -1,0 +1,16 @@
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [vue()],
+  server: {
+    proxy: {
+      // Forwards to csharp/Iccbba.Isbt128.Api (see its Properties/launchSettings.json).
+      '/api': {
+        target: 'http://localhost:5080',
+        changeOrigin: true,
+      },
+    },
+  },
+})
