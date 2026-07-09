@@ -10,7 +10,10 @@ import {
   describeRbcSerologicalResult, describeNumberOfTests, describeDinFlag, isDinChecksumFlag,
 } from './referenceTables.js';
 import { isoMod37_2 } from './checksum.js';
-import type { CompoundMessageInfo, ParsedBarcode, ParsedSegment } from './types.js';
+import type {
+  CompoundMessageInfo, ParsedBarcode, ParsedSegment, UdiDeviceIdentifier,
+  UdiDonationIdentificationNumber, UdiResult,
+} from './types.js';
 
 const DIN_ALPHANUMERIC = /[A-NP-Z1-9]/;
 const NON_ICCBBA_LOWERCASE = /[a-z]/;
@@ -264,9 +267,12 @@ function registerCompoundProgress(state: ScanState): void {
   }
 }
 
+function getSegmentFields(segments: ParsedSegment[], number: string): Record<string, unknown> | undefined {
+  return segments.find((s) => s.dataStructureNumber === number)?.fields;
+}
+
 function buildConvenienceAccessors(result: ParsedBarcode): void {
-  const byNumber = (n: string): Record<string, unknown> | undefined =>
-    result.segments.find((s) => s.dataStructureNumber === n)?.fields;
+  const byNumber = (n: string): Record<string, unknown> | undefined => getSegmentFields(result.segments, n);
   result.donationIdentificationNumber = byNumber('001');
   result.productCode = byNumber('003');
   result.expirationDate = byNumber('004') ?? byNumber('005');
@@ -339,6 +345,62 @@ export function check(barcode: string): boolean {
     if (error instanceof Isbt128ParseError) return false;
     throw error;
   }
+}
+
+function decodeDeviceIdentifier(segments: ParsedSegment[]): UdiDeviceIdentifier | null {
+  const fields = getSegmentFields(segments, '034');
+  if (!fields) return null;
+  return {
+    facilityIdentificationNumberOfProcessor: fields.facilityIdentificationNumberOfProcessor as string,
+    facilityDefinedProductCode: fields.facilityDefinedProductCode as string,
+    productDescriptionCode: fields.productDescriptionCode as string,
+  };
+}
+
+function decodeDonationIdentificationNumber(segments: ParsedSegment[]): UdiDonationIdentificationNumber | undefined {
+  const fields = getSegmentFields(segments, '001');
+  if (!fields) return undefined;
+  return {
+    facilityIdentificationNumber: fields.facilityIdentificationNumber as string,
+    year: fields.year as string,
+    sequenceNumber: fields.sequenceNumber as string,
+    donationIdentificationNumber: fields.donationIdentificationNumber as string,
+    flagCharacters: fields.flagCharacters as string,
+    flagMeaning: fields.flagMeaning as string,
+    isChecksumFlag: fields.isChecksumFlag as boolean,
+    checksumValid: fields.checksumValid as boolean | null,
+  };
+}
+
+function decodeSegmentString(segments: ParsedSegment[], number: string, key: string): string | undefined {
+  const fields = getSegmentFields(segments, number);
+  return fields ? (fields[key] as string) : undefined;
+}
+
+function decodeSegmentDate(segments: ParsedSegment[], number: string): Date | undefined {
+  const fields = getSegmentFields(segments, number);
+  return fields ? new Date(fields.date as string) : undefined;
+}
+
+/**
+ * Parses a barcode and reshapes the result into ST-017's UDI grouping: a single Device Identifier
+ * (DS034) plus its Production Identifiers (DS001/032/004/008/035). Throws the same way `parse()`
+ * does for structurally invalid input. `DI` is `null` when the barcode has no Processor Product
+ * Identification Code [034] segment.
+ */
+export function parseUdi(barcode: string): UdiResult {
+  const result = parse(barcode);
+  return {
+    raw: barcode,
+    DI: decodeDeviceIdentifier(result.segments),
+    PI: {
+      donationIdentificationNumber: decodeDonationIdentificationNumber(result.segments),
+      productDivisions: decodeSegmentString(result.segments, '032', 'divisionCode'),
+      expirationDate: decodeSegmentDate(result.segments, '004'),
+      productionDate: decodeSegmentDate(result.segments, '008'),
+      lotNumber: decodeSegmentString(result.segments, '035', 'lotNumber'),
+    },
+  };
 }
 
 export { calculateDinCheckCharacter } from './checksum.js';

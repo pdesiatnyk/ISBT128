@@ -43,3 +43,41 @@ export interface ParsedBarcode {
   sec?: Record<string, unknown>;
   udi?: Record<string, unknown>;
 }
+
+/** ST-017 UDI Device Identifier: the decoded Processor Product Identification Code [034]. */
+export interface UdiDeviceIdentifier {
+  facilityIdentificationNumberOfProcessor: string;
+  facilityDefinedProductCode: string;
+  productDescriptionCode: string;
+}
+
+/** The decoded Donation Identification Number [001], as carried by a UDI Production Identifier. */
+export interface UdiDonationIdentificationNumber {
+  facilityIdentificationNumber: string;
+  year: string;
+  sequenceNumber: string;
+  donationIdentificationNumber: string;
+  flagCharacters: string;
+  flagMeaning: string;
+  isChecksumFlag: boolean;
+  checksumValid: boolean | null;
+}
+
+/** ST-017 UDI Production Identifiers grouped by type. Present only when the corresponding data
+ * structure occurs in the barcode. */
+export interface UdiProductionIdentifiers {
+  donationIdentificationNumber?: UdiDonationIdentificationNumber;
+  productDivisions?: string;
+  expirationDate?: Date;
+  productionDate?: Date;
+  lotNumber?: string;
+}
+
+/** The result of `parseUdi()`: a barcode reshaped into ST-017's UDI grouping of a single Device
+ * Identifier (DS034) plus its Production Identifiers. */
+export interface UdiResult {
+  raw: string;
+  /** `null` when the barcode has no Processor Product Identification Code [034]. */
+  DI: UdiDeviceIdentifier | null;
+  PI: UdiProductionIdentifiers;
+}

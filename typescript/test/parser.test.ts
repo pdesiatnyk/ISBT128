@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { check, parse } from '../src/parser.js';
+import { check, parse, parseUdi } from '../src/parser.js';
 import { Isbt128ParseError } from '../src/errors.js';
 
 describe('parse() / check() — single data structures', () => {
@@ -98,6 +98,35 @@ describe('parse() — Compound Message [023]', () => {
     const barcode = '=+05000=/A9997XYZ100T0479=A99991712345600=,000012=>019031'; // declares 5, only 4 present
     expect(() => parse(barcode)).toThrow(Isbt128ParseError);
     expect(check(barcode)).toBe(false);
+  });
+});
+
+describe('parseUdi() — ST-017 DI/PI grouping', () => {
+  // ST-017 §4.3.1: parseUdi groups the same compound message into DI + PI.
+  it('groups the device identifier and production identifiers', () => {
+    const barcode = '=+04000=/A9997XYZ100T0479=A99991712345600=,000012=>019031';
+    const udi = parseUdi(barcode);
+    expect(udi.raw).toBe(barcode);
+    expect(udi.DI).toMatchObject({
+      facilityIdentificationNumberOfProcessor: 'A9997',
+      facilityDefinedProductCode: 'XYZ100',
+      productDescriptionCode: 'T0479',
+    });
+    expect(udi.PI.donationIdentificationNumber).toMatchObject({ facilityIdentificationNumber: 'A9999' });
+    expect(udi.PI.productDivisions).toBe('000012');
+    expect(udi.PI.expirationDate).toEqual(new Date('2019-01-31'));
+    expect(udi.PI.productionDate).toBeUndefined();
+    expect(udi.PI.lotNumber).toBeUndefined();
+  });
+
+  it('returns a null device identifier for a non-UDI barcode', () => {
+    const udi = parseUdi('=A99991712345600');
+    expect(udi.DI).toBeNull();
+    expect(udi.PI.donationIdentificationNumber).toBeDefined();
+    expect(udi.PI.productDivisions).toBeUndefined();
+    expect(udi.PI.expirationDate).toBeUndefined();
+    expect(udi.PI.productionDate).toBeUndefined();
+    expect(udi.PI.lotNumber).toBeUndefined();
   });
 });
 

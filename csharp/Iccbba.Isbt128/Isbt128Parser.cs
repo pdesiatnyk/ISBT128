@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace Iccbba.Isbt128;
@@ -317,10 +318,12 @@ public static partial class Isbt128Parser
         RegisterCompoundProgress(state);
     }
 
+    private static IReadOnlyDictionary<string, object?>? GetSegmentFields(IReadOnlyList<ParsedSegment> segments, string number) =>
+        segments.FirstOrDefault(s => s.DataStructureNumber == number)?.Fields;
+
     private static void BuildConvenienceAccessors(ParsedBarcode result)
     {
-        IReadOnlyDictionary<string, object?>? ByNumber(string n) =>
-            result.Segments.FirstOrDefault(s => s.DataStructureNumber == n)?.Fields;
+        IReadOnlyDictionary<string, object?>? ByNumber(string n) => GetSegmentFields(result.Segments, n);
 
         result.DonationIdentificationNumber = ByNumber("001");
         result.ProductCode = ByNumber("003");
@@ -409,5 +412,70 @@ public static partial class Isbt128Parser
         {
             return false;
         }
+    }
+
+    private static UdiDeviceIdentifier? DecodeDeviceIdentifier(IReadOnlyList<ParsedSegment> segments)
+    {
+        var fields = GetSegmentFields(segments, "034");
+        if (fields is null) return null;
+        return new UdiDeviceIdentifier
+        {
+            FacilityIdentificationNumberOfProcessor = (string)fields["facilityIdentificationNumberOfProcessor"]!,
+            FacilityDefinedProductCode = (string)fields["facilityDefinedProductCode"]!,
+            ProductDescriptionCode = (string)fields["productDescriptionCode"]!,
+        };
+    }
+
+    private static UdiDonationIdentificationNumber? DecodeDonationIdentificationNumber(IReadOnlyList<ParsedSegment> segments)
+    {
+        var fields = GetSegmentFields(segments, "001");
+        if (fields is null) return null;
+        return new UdiDonationIdentificationNumber
+        {
+            FacilityIdentificationNumber = (string)fields["facilityIdentificationNumber"]!,
+            Year = (string)fields["year"]!,
+            SequenceNumber = (string)fields["sequenceNumber"]!,
+            DonationIdentificationNumber = (string)fields["donationIdentificationNumber"]!,
+            FlagCharacters = (string)fields["flagCharacters"]!,
+            FlagMeaning = (string)fields["flagMeaning"]!,
+            IsChecksumFlag = (bool)fields["isChecksumFlag"]!,
+            ChecksumValid = (bool?)fields["checksumValid"],
+        };
+    }
+
+    private static string? DecodeSegmentString(IReadOnlyList<ParsedSegment> segments, string number, string key)
+    {
+        var fields = GetSegmentFields(segments, number);
+        return fields is null ? null : (string)fields[key]!;
+    }
+
+    private static DateOnly? DecodeSegmentDate(IReadOnlyList<ParsedSegment> segments, string number)
+    {
+        var fields = GetSegmentFields(segments, number);
+        return fields is null ? null : DateOnly.ParseExact((string)fields["date"]!, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Parses a barcode and reshapes the result into ST-017's UDI grouping: a single Device
+    /// Identifier (DS034) plus its Production Identifiers (DS001/032/004/008/035). Throws the same
+    /// way <see cref="Parse"/> does for structurally invalid input. <see cref="UdiResult.DI"/> is
+    /// <c>null</c> when the barcode has no Processor Product Identification Code [034] segment.
+    /// </summary>
+    public static UdiResult ParseUdi(string barcode)
+    {
+        var result = Parse(barcode);
+        return new UdiResult
+        {
+            Raw = barcode,
+            DI = DecodeDeviceIdentifier(result.Segments),
+            PI = new UdiProductionIdentifiers
+            {
+                DonationIdentificationNumber = DecodeDonationIdentificationNumber(result.Segments),
+                ProductDivisions = DecodeSegmentString(result.Segments, "032", "divisionCode"),
+                ExpirationDate = DecodeSegmentDate(result.Segments, "004"),
+                ProductionDate = DecodeSegmentDate(result.Segments, "008"),
+                LotNumber = DecodeSegmentString(result.Segments, "035", "lotNumber"),
+            },
+        };
     }
 }

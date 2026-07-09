@@ -95,6 +95,37 @@ public class ParserTests
         Assert.Equal("000000000000XYZ123", lot["lotNumber"]);
     }
 
+    // ST-017 §4.3.1: ParseUdi groups the same compound message into DI + PI.
+    [Fact]
+    public void ParseUdiGroupsDeviceAndProductionIdentifiers()
+    {
+        const string barcode = "=+04000=/A9997XYZ100T0479=A99991712345600=,000012=>019031";
+        var udi = Isbt128Parser.ParseUdi(barcode);
+        Assert.Equal(barcode, udi.Raw);
+        Assert.NotNull(udi.DI);
+        Assert.Equal("A9997", udi.DI!.FacilityIdentificationNumberOfProcessor);
+        Assert.Equal("XYZ100", udi.DI!.FacilityDefinedProductCode);
+        Assert.Equal("T0479", udi.DI!.ProductDescriptionCode);
+        Assert.NotNull(udi.PI.DonationIdentificationNumber);
+        Assert.Equal("A9999", udi.PI.DonationIdentificationNumber!.FacilityIdentificationNumber);
+        Assert.Equal("000012", udi.PI.ProductDivisions);
+        Assert.Equal(new DateOnly(2019, 1, 31), udi.PI.ExpirationDate);
+        Assert.Null(udi.PI.ProductionDate);
+        Assert.Null(udi.PI.LotNumber);
+    }
+
+    [Fact]
+    public void ParseUdiReturnsNullDeviceIdentifierForNonUdiBarcode()
+    {
+        var udi = Isbt128Parser.ParseUdi("=A99991712345600");
+        Assert.Null(udi.DI);
+        Assert.NotNull(udi.PI.DonationIdentificationNumber);
+        Assert.Null(udi.PI.ProductDivisions);
+        Assert.Null(udi.PI.ExpirationDate);
+        Assert.Null(udi.PI.ProductionDate);
+        Assert.Null(udi.PI.LotNumber);
+    }
+
     // ST-012 §6.2 "Data Matrix symbol 1": DIN + Blood Groups + Product Code + Expiry(+Time) + SEC.
     [Fact]
     public void ParsesDataMatrixSymbol1CompoundMessage()
