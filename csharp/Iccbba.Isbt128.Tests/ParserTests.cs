@@ -109,7 +109,7 @@ public class ParserTests
         Assert.NotNull(udi.PI.DonationIdentificationNumber);
         Assert.Equal("A9999", udi.PI.DonationIdentificationNumber!.FacilityIdentificationNumber);
         Assert.Equal("000012", udi.PI.ProductDivisions);
-        Assert.Equal(new DateOnly(2019, 1, 31), udi.PI.ExpirationDate);
+        Assert.Equal(new DateTime(2019, 1, 31), udi.PI.ExpirationDate);
         Assert.Null(udi.PI.ProductionDate);
         Assert.Null(udi.PI.LotNumber);
     }
@@ -148,7 +148,7 @@ public class ParserTests
                     FlagCharacters = "00",
                 },
                 ProductDivisions = "000012",
-                ExpirationDate = new DateOnly(2019, 1, 31),
+                ExpirationDate = new DateTime(2019, 1, 31),
             },
         };
 
@@ -160,7 +160,7 @@ public class ParserTests
         Assert.Equal("A9997", udi.DI!.FacilityIdentificationNumberOfProcessor);
         Assert.Equal("A9999", udi.PI.DonationIdentificationNumber!.FacilityIdentificationNumber);
         Assert.Equal("000012", udi.PI.ProductDivisions);
-        Assert.Equal(new DateOnly(2019, 1, 31), udi.PI.ExpirationDate);
+        Assert.Equal(new DateTime(2019, 1, 31), udi.PI.ExpirationDate);
     }
 
     // ST-001 Appendix A.2 worked example: DIN "G123417654321" -> Type 3 flag "70".
