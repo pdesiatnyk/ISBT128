@@ -478,4 +478,63 @@ public static partial class Isbt128Parser
             },
         };
     }
+
+    private static void RequireLength(string value, int length, string field)
+    {
+        if (value.Length != length)
+        {
+            throw new Isbt128BuildException($"Must be exactly {length} characters, got {value.Length}", field, "INVALID_LENGTH");
+        }
+    }
+
+    private static string EncodeDeviceIdentifier(BuildUdiDeviceIdentifierInput di)
+    {
+        RequireLength(di.FacilityIdentificationNumberOfProcessor, 5, "DI.FacilityIdentificationNumberOfProcessor");
+        RequireLength(di.FacilityDefinedProductCode, 6, "DI.FacilityDefinedProductCode");
+        RequireLength(di.ProductDescriptionCode, 5, "DI.ProductDescriptionCode");
+        return "=/" + di.FacilityIdentificationNumberOfProcessor + di.FacilityDefinedProductCode + di.ProductDescriptionCode;
+    }
+
+    private static string EncodeDonationIdentificationNumber(BuildUdiDonationIdentificationNumberInput din)
+    {
+        RequireLength(din.FacilityIdentificationNumber, 5, "PI.DonationIdentificationNumber.FacilityIdentificationNumber");
+        RequireLength(din.Year, 2, "PI.DonationIdentificationNumber.Year");
+        RequireLength(din.SequenceNumber, 6, "PI.DonationIdentificationNumber.SequenceNumber");
+        var din13 = din.FacilityIdentificationNumber + din.Year + din.SequenceNumber;
+        var flag = din.FlagCharacters ?? Checksum.CalculateDinType3Flag(din13);
+        RequireLength(flag, 2, "PI.DonationIdentificationNumber.FlagCharacters");
+        return "=" + din13 + flag;
+    }
+
+    private static string EncodeProductDivisions(string divisionCode)
+    {
+        RequireLength(divisionCode, 6, "PI.ProductDivisions");
+        return "=," + divisionCode;
+    }
+
+    private static string EncodeLotNumber(string lotNumber)
+    {
+        RequireLength(lotNumber, 18, "PI.LotNumber");
+        return "&,1" + lotNumber;
+    }
+
+    /// <summary>
+    /// Encodes a UDI (Device Identifier + Production Identifiers) into an ISBT 128 Compound
+    /// Message barcode string — the inverse of <see cref="ParseUdi"/>. Throws
+    /// <see cref="Isbt128BuildException"/> if any field is missing or the wrong fixed length.
+    /// </summary>
+    public static string BuildUdi(BuildUdiInput input)
+    {
+        var segments = new List<string>
+        {
+            EncodeDeviceIdentifier(input.DI),
+            EncodeDonationIdentificationNumber(input.PI.DonationIdentificationNumber),
+            EncodeProductDivisions(input.PI.ProductDivisions),
+        };
+        if (input.PI.ExpirationDate is { } exp) segments.Add("=>" + DateUtils.EncodeCyyjjj(exp));
+        if (input.PI.ProductionDate is { } prod) segments.Add("=}" + DateUtils.EncodeCyyjjj(prod));
+        if (input.PI.LotNumber is { } lot) segments.Add(EncodeLotNumber(lot));
+
+        return $"=+{segments.Count:D2}000" + string.Join("", segments);
+    }
 }

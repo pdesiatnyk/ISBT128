@@ -126,6 +126,98 @@ public class ParserTests
         Assert.Null(udi.PI.LotNumber);
     }
 
+    // ST-017 §4.3.1: BuildUdi is the inverse of ParseUdi — round-trips through both.
+    [Fact]
+    public void BuildUdiRoundTripsThroughParseUdi()
+    {
+        var input = new BuildUdiInput
+        {
+            DI = new BuildUdiDeviceIdentifierInput
+            {
+                FacilityIdentificationNumberOfProcessor = "A9997",
+                FacilityDefinedProductCode = "XYZ100",
+                ProductDescriptionCode = "T0479",
+            },
+            PI = new BuildUdiProductionIdentifiersInput
+            {
+                DonationIdentificationNumber = new BuildUdiDonationIdentificationNumberInput
+                {
+                    FacilityIdentificationNumber = "A9999",
+                    Year = "17",
+                    SequenceNumber = "123456",
+                    FlagCharacters = "00",
+                },
+                ProductDivisions = "000012",
+                ExpirationDate = new DateOnly(2019, 1, 31),
+            },
+        };
+
+        const string expected = "=+04000=/A9997XYZ100T0479=A99991712345600=,000012=>019031";
+        var barcode = Isbt128Parser.BuildUdi(input);
+        Assert.Equal(expected, barcode);
+
+        var udi = Isbt128Parser.ParseUdi(barcode);
+        Assert.Equal("A9997", udi.DI!.FacilityIdentificationNumberOfProcessor);
+        Assert.Equal("A9999", udi.PI.DonationIdentificationNumber!.FacilityIdentificationNumber);
+        Assert.Equal("000012", udi.PI.ProductDivisions);
+        Assert.Equal(new DateOnly(2019, 1, 31), udi.PI.ExpirationDate);
+    }
+
+    // ST-001 Appendix A.2 worked example: DIN "G123417654321" -> Type 3 flag "70".
+    [Fact]
+    public void BuildUdiAutoComputesDinType3FlagWhenOmitted()
+    {
+        var input = new BuildUdiInput
+        {
+            DI = new BuildUdiDeviceIdentifierInput
+            {
+                FacilityIdentificationNumberOfProcessor = "A9997",
+                FacilityDefinedProductCode = "XYZ100",
+                ProductDescriptionCode = "T0479",
+            },
+            PI = new BuildUdiProductionIdentifiersInput
+            {
+                DonationIdentificationNumber = new BuildUdiDonationIdentificationNumberInput
+                {
+                    FacilityIdentificationNumber = "G1234",
+                    Year = "17",
+                    SequenceNumber = "654321",
+                },
+                ProductDivisions = "000000",
+            },
+        };
+
+        var barcode = Isbt128Parser.BuildUdi(input);
+        Assert.Contains("=G12341765432170", barcode);
+    }
+
+    [Fact]
+    public void BuildUdiThrowsOnWrongFieldLength()
+    {
+        var input = new BuildUdiInput
+        {
+            DI = new BuildUdiDeviceIdentifierInput
+            {
+                FacilityIdentificationNumberOfProcessor = "A999", // 4 chars, should be 5
+                FacilityDefinedProductCode = "XYZ100",
+                ProductDescriptionCode = "T0479",
+            },
+            PI = new BuildUdiProductionIdentifiersInput
+            {
+                DonationIdentificationNumber = new BuildUdiDonationIdentificationNumberInput
+                {
+                    FacilityIdentificationNumber = "A9999",
+                    Year = "17",
+                    SequenceNumber = "123456",
+                },
+                ProductDivisions = "000012",
+            },
+        };
+
+        var ex = Assert.Throws<Isbt128BuildException>(() => Isbt128Parser.BuildUdi(input));
+        Assert.Equal("DI.FacilityIdentificationNumberOfProcessor", ex.Field);
+    }
+
     // ST-012 §6.2 "Data Matrix symbol 1": DIN + Blood Groups + Product Code + Expiry(+Time) + SEC.
     [Fact]
     public void ParsesDataMatrixSymbol1CompoundMessage()

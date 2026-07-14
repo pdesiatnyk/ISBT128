@@ -38,6 +38,16 @@ public static class DateUtils
         };
     }
 
+    /// <summary>Encodes a date into a <c>cyyjjj</c> (6-char) field — the inverse of <see cref="DecodeCyyjjj"/>,
+    /// using the same century-from-2000 convention as <see cref="CenturyYearToFullYear"/>.</summary>
+    public static string EncodeCyyjjj(DateOnly date)
+    {
+        var yearsFrom2000 = date.Year - 2000;
+        var century = yearsFrom2000 / 100;
+        var yearInCentury = yearsFrom2000 % 100;
+        return $"{century}{yearInCentury:D2}{date.DayOfYear:D3}";
+    }
+
     /// <summary>Decodes a <c>cyyjjjhhmm</c> (10-char) date+time field.</summary>
     public static Dictionary<string, object?> DecodeCyyjjjhhmm(string content)
     {

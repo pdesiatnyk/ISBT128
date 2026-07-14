@@ -2,15 +2,17 @@
  * Core ISBT 128 barcode scanner/parser (ST-001 §2.1-2.3, §2.4.23 Compound Message, §10
  * concatenation rules) plus `check()`/`parse()` — the two public entry points.
  */
-import { Isbt128ParseError } from './errors.js';
+import { Isbt128BuildError, Isbt128ParseError } from './errors.js';
 import { FIXED_STRUCTURES_BY_DI } from './structures.js';
 import { decodeSecContent, isSecText, parseSecText } from './sec.js';
 import {
   describeDimensionSymbol, describeDimensionUnit, applyDimensionDecimalPoint,
   describeRbcSerologicalResult, describeNumberOfTests, describeDinFlag, isDinChecksumFlag,
 } from './referenceTables.js';
-import { isoMod37_2 } from './checksum.js';
+import { calculateDinType3Flag, isoMod37_2 } from './checksum.js';
+import { encodeCyyjjj } from './dateUtils.js';
 import type {
+  BuildUdiDeviceIdentifierInput, BuildUdiDonationIdentificationNumberInput, BuildUdiInput,
   CompoundMessageInfo, ParsedBarcode, ParsedSegment, UdiDeviceIdentifier,
   UdiDonationIdentificationNumber, UdiResult,
 } from './types.js';
@@ -401,6 +403,61 @@ export function parseUdi(barcode: string): UdiResult {
       lotNumber: decodeSegmentString(result.segments, '035', 'lotNumber'),
     },
   };
+}
+
+function failBuild(reason: string, field: string, message: string): never {
+  throw new Isbt128BuildError(message, field, reason);
+}
+
+function requireLength(value: string, length: number, field: string): void {
+  if (value.length !== length) {
+    failBuild('INVALID_LENGTH', field, `Must be exactly ${length} characters, got ${value.length}`);
+  }
+}
+
+function encodeDeviceIdentifier(di: BuildUdiDeviceIdentifierInput): string {
+  requireLength(di.facilityIdentificationNumberOfProcessor, 5, 'DI.facilityIdentificationNumberOfProcessor');
+  requireLength(di.facilityDefinedProductCode, 6, 'DI.facilityDefinedProductCode');
+  requireLength(di.productDescriptionCode, 5, 'DI.productDescriptionCode');
+  return `=/${di.facilityIdentificationNumberOfProcessor}${di.facilityDefinedProductCode}${di.productDescriptionCode}`;
+}
+
+function encodeDonationIdentificationNumber(din: BuildUdiDonationIdentificationNumberInput): string {
+  requireLength(din.facilityIdentificationNumber, 5, 'PI.donationIdentificationNumber.facilityIdentificationNumber');
+  requireLength(din.year, 2, 'PI.donationIdentificationNumber.year');
+  requireLength(din.sequenceNumber, 6, 'PI.donationIdentificationNumber.sequenceNumber');
+  const din13 = `${din.facilityIdentificationNumber}${din.year}${din.sequenceNumber}`;
+  const flag = din.flagCharacters ?? calculateDinType3Flag(din13);
+  requireLength(flag, 2, 'PI.donationIdentificationNumber.flagCharacters');
+  return `=${din13}${flag}`;
+}
+
+function encodeProductDivisions(divisionCode: string): string {
+  requireLength(divisionCode, 6, 'PI.productDivisions');
+  return `=,${divisionCode}`;
+}
+
+function encodeLotNumber(lotNumber: string): string {
+  requireLength(lotNumber, 18, 'PI.lotNumber');
+  return `&,1${lotNumber}`;
+}
+
+/**
+ * Encodes a UDI (Device Identifier + Production Identifiers) into an ISBT 128 Compound Message
+ * barcode string — the inverse of `parseUdi()`. Throws `Isbt128BuildError` if any field is
+ * missing or the wrong fixed length.
+ */
+export function buildUdi(input: BuildUdiInput): string {
+  const segments = [
+    encodeDeviceIdentifier(input.DI),
+    encodeDonationIdentificationNumber(input.PI.donationIdentificationNumber),
+    encodeProductDivisions(input.PI.productDivisions),
+  ];
+  if (input.PI.expirationDate) segments.push(`=>${encodeCyyjjj(input.PI.expirationDate)}`);
+  if (input.PI.productionDate) segments.push(`=}${encodeCyyjjj(input.PI.productionDate)}`);
+  if (input.PI.lotNumber) segments.push(encodeLotNumber(input.PI.lotNumber));
+
+  return `=+${String(segments.length).padStart(2, '0')}000${segments.join('')}`;
 }
 
 export { calculateDinCheckCharacter } from './checksum.js';

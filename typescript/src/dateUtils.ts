@@ -24,6 +24,17 @@ export function ordinalDateToIso(year: number, dayOfYear: number): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+/** Encodes a date into a `cyyjjj` (6-char) field — the inverse of `decodeCyyjjj`, using the same
+ * century-from-2000 convention as `centuryYearToFullYear`. */
+export function encodeCyyjjj(date: Date): string {
+  const year = date.getUTCFullYear();
+  const yearsFrom2000 = year - 2000;
+  const century = Math.floor(yearsFrom2000 / 100);
+  const yearInCentury = yearsFrom2000 % 100;
+  const dayOfYear = Math.round((Date.UTC(year, date.getUTCMonth(), date.getUTCDate()) - Date.UTC(year, 0, 1)) / 86400000) + 1;
+  return `${century}${String(yearInCentury).padStart(2, '0')}${String(dayOfYear).padStart(3, '0')}`;
+}
+
 /** Decodes a `cyyjjj` (6-char) date field into { century, yearInCentury, dayOfYear, date }. */
 export function decodeCyyjjj(content: string): { century: string; yearInCentury: string; dayOfYear: string; date: string } {
   const century = content[0];

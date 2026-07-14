@@ -81,3 +81,36 @@ export interface UdiResult {
   DI: UdiDeviceIdentifier | null;
   PI: UdiProductionIdentifiers;
 }
+
+/** Input for `buildUdi()`: the fields needed to encode a Device Identifier (DS034). All fields
+ * are fixed-length per ST-001 Table 2. */
+export interface BuildUdiDeviceIdentifierInput {
+  facilityIdentificationNumberOfProcessor: string;
+  facilityDefinedProductCode: string;
+  productDescriptionCode: string;
+}
+
+/** Input for `buildUdi()`: the fields needed to encode a Donation Identification Number (DS001). */
+export interface BuildUdiDonationIdentificationNumberInput {
+  facilityIdentificationNumber: string;
+  year: string;
+  sequenceNumber: string;
+  /** When omitted, auto-computed as the Type 3 mod-37,2 checksum flag (ST-001 Appendix A.2). */
+  flagCharacters?: string;
+}
+
+/** Input for `buildUdi()`: ST-017 UDI Production Identifiers. `donationIdentificationNumber` and
+ * `productDivisions` are mandatory (ST-017 §4.1); the rest are conditional. */
+export interface BuildUdiProductionIdentifiersInput {
+  donationIdentificationNumber: BuildUdiDonationIdentificationNumberInput;
+  productDivisions: string;
+  expirationDate?: Date;
+  productionDate?: Date;
+  lotNumber?: string;
+}
+
+/** Input for `buildUdi()`. */
+export interface BuildUdiInput {
+  DI: BuildUdiDeviceIdentifierInput;
+  PI: BuildUdiProductionIdentifiersInput;
+}

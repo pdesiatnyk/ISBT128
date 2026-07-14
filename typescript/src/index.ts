@@ -4,11 +4,13 @@
  * Primary entry points: `check()` and `parse()`. See README.md for scope and the standard
  * documents this implementation is derived from.
  */
-export { check, parse, parseUdi } from './parser.js';
-export { Isbt128ParseError } from './errors.js';
+export { check, parse, parseUdi, buildUdi } from './parser.js';
+export { Isbt128ParseError, Isbt128BuildError } from './errors.js';
 export type {
   ParsedBarcode, ParsedSegment, CompoundMessageInfo, UdiResult, UdiProductionIdentifiers,
   UdiDeviceIdentifier, UdiDonationIdentificationNumber,
+  BuildUdiInput, BuildUdiProductionIdentifiersInput, BuildUdiDeviceIdentifierInput,
+  BuildUdiDonationIdentificationNumberInput,
 } from './types.js';
 
 export {

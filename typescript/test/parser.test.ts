@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { check, parse, parseUdi } from '../src/parser.js';
-import { Isbt128ParseError } from '../src/errors.js';
+import { check, parse, parseUdi, buildUdi } from '../src/parser.js';
+import { Isbt128ParseError, Isbt128BuildError } from '../src/errors.js';
 
 describe('parse() / check() — single data structures', () => {
   // ST-017 §3.1 Figure 2: DIN form example.
@@ -127,6 +127,88 @@ describe('parseUdi() — ST-017 DI/PI grouping', () => {
     expect(udi.PI.expirationDate).toBeUndefined();
     expect(udi.PI.productionDate).toBeUndefined();
     expect(udi.PI.lotNumber).toBeUndefined();
+  });
+});
+
+describe('buildUdi() — ST-017 DI/PI encoding', () => {
+  // ST-017 §4.3.1: buildUdi is the inverse of parseUdi — round-trips through both.
+  it('round-trips through parseUdi()', () => {
+    const input = {
+      DI: {
+        facilityIdentificationNumberOfProcessor: 'A9997',
+        facilityDefinedProductCode: 'XYZ100',
+        productDescriptionCode: 'T0479',
+      },
+      PI: {
+        donationIdentificationNumber: {
+          facilityIdentificationNumber: 'A9999',
+          year: '17',
+          sequenceNumber: '123456',
+          flagCharacters: '00',
+        },
+        productDivisions: '000012',
+        expirationDate: new Date('2019-01-31'),
+      },
+    };
+
+    const expected = '=+04000=/A9997XYZ100T0479=A99991712345600=,000012=>019031';
+    const barcode = buildUdi(input);
+    expect(barcode).toBe(expected);
+
+    const udi = parseUdi(barcode);
+    expect(udi.DI?.facilityIdentificationNumberOfProcessor).toBe('A9997');
+    expect(udi.PI.donationIdentificationNumber?.facilityIdentificationNumber).toBe('A9999');
+    expect(udi.PI.productDivisions).toBe('000012');
+    expect(udi.PI.expirationDate).toEqual(new Date('2019-01-31'));
+  });
+
+  // ST-001 Appendix A.2 worked example: DIN "G123417654321" -> Type 3 flag "70".
+  it('auto-computes the DIN Type 3 flag when omitted', () => {
+    const input = {
+      DI: {
+        facilityIdentificationNumberOfProcessor: 'A9997',
+        facilityDefinedProductCode: 'XYZ100',
+        productDescriptionCode: 'T0479',
+      },
+      PI: {
+        donationIdentificationNumber: {
+          facilityIdentificationNumber: 'G1234',
+          year: '17',
+          sequenceNumber: '654321',
+        },
+        productDivisions: '000000',
+      },
+    };
+
+    expect(buildUdi(input)).toContain('=G12341765432170');
+  });
+
+  it('throws on a wrong-length field', () => {
+    const input = {
+      DI: {
+        facilityIdentificationNumberOfProcessor: 'A999', // 4 chars, should be 5
+        facilityDefinedProductCode: 'XYZ100',
+        productDescriptionCode: 'T0479',
+      },
+      PI: {
+        donationIdentificationNumber: {
+          facilityIdentificationNumber: 'A9999',
+          year: '17',
+          sequenceNumber: '123456',
+        },
+        productDivisions: '000012',
+      },
+    };
+
+    expect(() => buildUdi(input)).toThrow(Isbt128BuildError);
+    let caught: unknown;
+    try {
+      buildUdi(input);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(Isbt128BuildError);
+    expect((caught as Isbt128BuildError).field).toBe('DI.facilityIdentificationNumberOfProcessor');
   });
 });
 

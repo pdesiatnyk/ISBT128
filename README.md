@@ -10,6 +10,12 @@ Independent, functionally-equivalent parser/validator libraries for ICCBBA/ISBT 
   pairs (§10), Compound Messages (DS023, used in 2-D/Data Matrix symbols), and the SEC
   eye-readable text form.
 
+Each library also exposes an ST-017 UDI-specific pair built on top of `parse`/`check`:
+`parseUdi(barcode)` / `ParseUdi(barcode)` reshapes a parse result into the UDI's Device Identifier
+(DS034) + Production Identifiers (DIN/Product Divisions/Expiration/Production Date/Lot Number)
+grouping, and `buildUdi(input)` / `BuildUdi(input)` is its inverse — encodes typed DI/PI fields
+back into a valid barcode string.
+
 Implementation is derived from four source documents in `documents/`:
 
 | File | Standard | Covers |
@@ -120,12 +126,19 @@ npm test             # vitest
 
 ## Showcase app
 
-`showcase/` is a small internal tool for eyeballing whether the C# and TypeScript parsers agree
-on a given barcode: pick a sample serial (or type your own) and see both parsers' output
-side by side in a field-by-field diff table. The TS parser runs directly in the browser
-(imported from `typescript/` via an npm workspace); the C# parser is called over HTTP through
-`csharp/Iccbba.Isbt128.Api`, a thin ASP.NET Core minimal API that didn't previously exist since
-the C# library was class-library-only.
+`showcase/` is a small internal tool for eyeballing whether the C# and TypeScript parsers agree,
+with two tabs:
+
+- **Compare** — pick a sample serial (or type your own) and see both parsers' output side by side
+  in a field-by-field diff table.
+- **Generate** — fill in a UDI's DI/PI fields (the same fields as `UdiResult`/`BuildUdiInput`) and
+  see both languages' `buildUdi`/`BuildUdi` output side by side, with a button to send the
+  generated barcode straight into the Compare tab.
+
+The TS parser/builder runs directly in the browser (imported from `typescript/` via an npm
+workspace); the C# side is called over HTTP through `csharp/Iccbba.Isbt128.Api`, a thin ASP.NET
+Core minimal API (`/api/parse`, `/api/build`) that didn't previously exist since the C# library
+was class-library-only.
 
 Run both halves (from the repo root, in two terminals):
 

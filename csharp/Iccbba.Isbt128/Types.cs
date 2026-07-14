@@ -103,3 +103,43 @@ public sealed class UdiResult
 
     public required UdiProductionIdentifiers PI { get; init; }
 }
+
+/// <summary>Input for <see cref="Isbt128Parser.BuildUdi"/>: the fields needed to encode a Device
+/// Identifier (DS034). All fields are fixed-length per ST-001 Table 2.</summary>
+public sealed class BuildUdiDeviceIdentifierInput
+{
+    public required string FacilityIdentificationNumberOfProcessor { get; init; }
+    public required string FacilityDefinedProductCode { get; init; }
+    public required string ProductDescriptionCode { get; init; }
+}
+
+/// <summary>Input for <see cref="Isbt128Parser.BuildUdi"/>: the fields needed to encode a Donation
+/// Identification Number (DS001).</summary>
+public sealed class BuildUdiDonationIdentificationNumberInput
+{
+    public required string FacilityIdentificationNumber { get; init; }
+    public required string Year { get; init; }
+    public required string SequenceNumber { get; init; }
+
+    /// <summary>When omitted, auto-computed as the Type 3 mod-37,2 checksum flag (ST-001 Appendix A.2).</summary>
+    public string? FlagCharacters { get; init; }
+}
+
+/// <summary>Input for <see cref="Isbt128Parser.BuildUdi"/>: ST-017 UDI Production Identifiers.
+/// <see cref="DonationIdentificationNumber"/> and <see cref="ProductDivisions"/> are mandatory
+/// (ST-017 §4.1); the rest are conditional, included only if present on the label.</summary>
+public sealed class BuildUdiProductionIdentifiersInput
+{
+    public required BuildUdiDonationIdentificationNumberInput DonationIdentificationNumber { get; init; }
+    public required string ProductDivisions { get; init; }
+    public DateOnly? ExpirationDate { get; init; }
+    public DateOnly? ProductionDate { get; init; }
+    public string? LotNumber { get; init; }
+}
+
+/// <summary>Input for <see cref="Isbt128Parser.BuildUdi"/>.</summary>
+public sealed class BuildUdiInput
+{
+    public required BuildUdiDeviceIdentifierInput DI { get; init; }
+    public required BuildUdiProductionIdentifiersInput PI { get; init; }
+}

@@ -3,13 +3,21 @@ import { ref, computed, watch } from 'vue'
 import SerialSelector from './components/SerialSelector.vue'
 import ResultSummary from './components/ResultSummary.vue'
 import ComparisonTable from './components/ComparisonTable.vue'
+import GeneratorTab from './components/GeneratorTab.vue'
 import { parseWithTs } from './services/tsParser'
 import { parseWithCSharp } from './services/csharpApi'
 import { diffRows } from './lib/diff'
 import { sampleSerials } from './data/sampleSerials'
 import type { ParseOutcome } from './types'
 
+const activeTab = ref<'compare' | 'generate'>('compare')
+
 const barcode = ref(sampleSerials[0]?.barcode ?? '')
+
+function useGeneratedBarcode(generated: string) {
+  barcode.value = generated
+  activeTab.value = 'compare'
+}
 
 const tsOutcome = computed<ParseOutcome | null>(() => (barcode.value ? parseWithTs(barcode.value) : null))
 
@@ -64,19 +72,32 @@ const rows = computed(() => diffRows(outcomeData(tsOutcome.value), outcomeData(c
       <p class="subtitle">Compare the TypeScript and C# parser implementations for the same barcode.</p>
     </header>
 
-    <SerialSelector v-model="barcode" />
-
-    <div class="summaries">
-      <ResultSummary label="TypeScript" :outcome="tsOutcome" />
-      <ResultSummary label="C#" :outcome="csharpOutcome" :loading="csharpLoading" />
+    <div class="tab-switcher" role="tablist">
+      <button type="button" :class="{ active: activeTab === 'compare' }" @click="activeTab = 'compare'">
+        Compare
+      </button>
+      <button type="button" :class="{ active: activeTab === 'generate' }" @click="activeTab = 'generate'">
+        Generate
+      </button>
     </div>
 
-    <ComparisonTable
-      :rows="rows"
-      left-label="TypeScript"
-      right-label="C#"
-      :left-raw="outcomeData(tsOutcome)"
-      :right-raw="outcomeData(csharpOutcome)"
-    />
+    <template v-if="activeTab === 'compare'">
+      <SerialSelector v-model="barcode" />
+
+      <div class="summaries">
+        <ResultSummary label="TypeScript" :outcome="tsOutcome" />
+        <ResultSummary label="C#" :outcome="csharpOutcome" :loading="csharpLoading" />
+      </div>
+
+      <ComparisonTable
+        :rows="rows"
+        left-label="TypeScript"
+        right-label="C#"
+        :left-raw="outcomeData(tsOutcome)"
+        :right-raw="outcomeData(csharpOutcome)"
+      />
+    </template>
+
+    <GeneratorTab v-else @use-in-compare="useGeneratedBarcode" />
   </main>
 </template>

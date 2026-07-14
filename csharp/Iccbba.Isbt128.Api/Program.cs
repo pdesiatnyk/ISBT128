@@ -42,6 +42,25 @@ app.MapPost("/api/parse", (ParseRequest request) =>
     }
 });
 
+// Builds a UDI barcode from typed DI/PI fields for the showcase app (see /showcase).
+// Returns 200 with success=false for invalid input, same rationale as /api/parse.
+app.MapPost("/api/build", (BuildUdiInput input) =>
+{
+    try
+    {
+        var barcode = Isbt128Parser.BuildUdi(input);
+        return Results.Ok(new { success = true, barcode });
+    }
+    catch (Isbt128BuildException ex)
+    {
+        return Results.Ok(new
+        {
+            success = false,
+            error = new { message = ex.Message, field = ex.Field, reason = ex.Reason },
+        });
+    }
+});
+
 app.Run();
 
 internal sealed record ParseRequest(string Barcode);
