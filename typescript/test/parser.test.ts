@@ -112,11 +112,13 @@ describe('parseUdi() — ST-017 DI/PI grouping', () => {
       facilityDefinedProductCode: 'XYZ100',
       productDescriptionCode: 'T0479',
     });
+    expect(udi.DI?.raw).toBe('=/A9997XYZ100T0479');
     expect(udi.PI.donationIdentificationNumber).toMatchObject({ facilityIdentificationNumber: 'A9999' });
     expect(udi.PI.productDivisions).toBe('000012');
     expect(udi.PI.expirationDate).toEqual(new Date('2019-01-31'));
     expect(udi.PI.productionDate).toBeUndefined();
     expect(udi.PI.lotNumber).toBeUndefined();
+    expect(udi.PI.raw).toBe('=A99991712345600=,000012=>019031');
   });
 
   it('returns a null device identifier for a non-UDI barcode', () => {
@@ -127,6 +129,22 @@ describe('parseUdi() — ST-017 DI/PI grouping', () => {
     expect(udi.PI.expirationDate).toBeUndefined();
     expect(udi.PI.productionDate).toBeUndefined();
     expect(udi.PI.lotNumber).toBeUndefined();
+    expect(udi.PI.raw).toBe('=A99991712345600');
+  });
+
+  it('concatenates all five PI segments in barcode order', () => {
+    const barcode = '=+06000=/A9999XYZ100T0476=,000025=A99971712345600=>019032=}017032&,1000000000000XYZ123';
+    const udi = parseUdi(barcode);
+    expect(udi.DI?.raw).toBe('=/A9999XYZ100T0476');
+    expect(udi.PI.raw).toBe('=,000025=A99971712345600=>019032=}017032&,1000000000000XYZ123');
+    expect(udi.PI.raw).not.toBe(udi.raw);
+    expect(udi.raw).toBe('=+06000' + udi.DI?.raw + udi.PI.raw);
+  });
+
+  it('leaves PI.raw undefined when no production identifier segments are present', () => {
+    const udi = parseUdi('=/A9997XYZ100T0479');
+    expect(udi.DI?.raw).toBe('=/A9997XYZ100T0479');
+    expect(udi.PI.raw).toBeUndefined();
   });
 });
 

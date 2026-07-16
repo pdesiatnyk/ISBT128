@@ -366,13 +366,25 @@ export function check(barcode: string): boolean {
 }
 
 function decodeDeviceIdentifier(segments: ParsedSegment[]): UdiDeviceIdentifier | null {
-  const fields = getSegmentFields(segments, '034');
-  if (!fields) return null;
+  const segment = segments.find((s) => s.dataStructureNumber === '034');
+  if (!segment) return null;
+  const fields = segment.fields;
   return {
     facilityIdentificationNumberOfProcessor: fields.facilityIdentificationNumberOfProcessor as string,
     facilityDefinedProductCode: fields.facilityDefinedProductCode as string,
     productDescriptionCode: fields.productDescriptionCode as string,
+    raw: segment.dataIdentifier + segment.rawContent,
   };
+}
+
+const PI_SEGMENT_NUMBERS = ['001', '032', '004', '008', '035'];
+
+function buildProductionIdentifiersRaw(segments: ParsedSegment[]): string | undefined {
+  const raw = segments
+    .filter((s) => s.dataStructureNumber !== null && PI_SEGMENT_NUMBERS.includes(s.dataStructureNumber))
+    .map((s) => s.dataIdentifier + s.rawContent)
+    .join('');
+  return raw.length === 0 ? undefined : raw;
 }
 
 function decodeDonationIdentificationNumber(segments: ParsedSegment[]): UdiDonationIdentificationNumber | undefined {
@@ -417,6 +429,7 @@ export function parseUdi(barcode: string): UdiResult {
       expirationDate: decodeSegmentDate(result.segments, '004'),
       productionDate: decodeSegmentDate(result.segments, '008'),
       lotNumber: decodeSegmentString(result.segments, '035', 'lotNumber'),
+      raw: buildProductionIdentifiersRaw(result.segments),
     },
   };
 }

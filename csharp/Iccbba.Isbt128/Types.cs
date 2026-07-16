@@ -69,6 +69,9 @@ namespace Iccbba.Isbt128
         public string FacilityIdentificationNumberOfProcessor { get; set; }
         public string FacilityDefinedProductCode { get; set; }
         public string ProductDescriptionCode { get; set; }
+
+        /// <summary>The raw DI substring (data identifier + content) exactly as it appeared in the barcode.</summary>
+        public string Raw { get; set; }
     }
 
     /// <summary>The decoded Donation Identification Number [001], as carried by a UDI Production Identifier.</summary>
@@ -93,6 +96,10 @@ namespace Iccbba.Isbt128
         public DateTime? ExpirationDate { get; set; }
         public DateTime? ProductionDate { get; set; }
         public string LotNumber { get; set; }
+
+        /// <summary>Concatenation of the raw substrings of whichever PI-contributing segments
+        /// (DS001/032/004/008/035) are present, in original barcode order. <c>null</c> when none are present.</summary>
+        public string Raw { get; set; }
     }
 
     /// <summary>The result of <see cref="Isbt128Parser.ParseUdi"/>: a barcode reshaped into ST-017's

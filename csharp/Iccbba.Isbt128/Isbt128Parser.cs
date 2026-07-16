@@ -432,14 +432,26 @@ namespace Iccbba.Isbt128
 
         private static UdiDeviceIdentifier DecodeDeviceIdentifier(IReadOnlyList<ParsedSegment> segments)
         {
-            var fields = GetSegmentFields(segments, "034");
-            if (fields == null) return null;
+            var segment = segments.FirstOrDefault(s => s.DataStructureNumber == "034");
+            if (segment == null) return null;
+            var fields = segment.Fields;
             return new UdiDeviceIdentifier
             {
                 FacilityIdentificationNumberOfProcessor = (string)fields["facilityIdentificationNumberOfProcessor"],
                 FacilityDefinedProductCode = (string)fields["facilityDefinedProductCode"],
                 ProductDescriptionCode = (string)fields["productDescriptionCode"],
+                Raw = segment.DataIdentifier + segment.RawContent,
             };
+        }
+
+        private static readonly string[] PiSegmentNumbers = { "001", "032", "004", "008", "035" };
+
+        private static string BuildProductionIdentifiersRaw(IReadOnlyList<ParsedSegment> segments)
+        {
+            var raw = string.Concat(segments
+                .Where(s => Array.IndexOf(PiSegmentNumbers, s.DataStructureNumber) >= 0)
+                .Select(s => s.DataIdentifier + s.RawContent));
+            return raw.Length == 0 ? null : raw;
         }
 
         private static UdiDonationIdentificationNumber DecodeDonationIdentificationNumber(IReadOnlyList<ParsedSegment> segments)
@@ -491,6 +503,7 @@ namespace Iccbba.Isbt128
                     ExpirationDate = DecodeSegmentDate(result.Segments, "004"),
                     ProductionDate = DecodeSegmentDate(result.Segments, "008"),
                     LotNumber = DecodeSegmentString(result.Segments, "035", "lotNumber"),
+                    Raw = BuildProductionIdentifiersRaw(result.Segments),
                 },
             };
         }

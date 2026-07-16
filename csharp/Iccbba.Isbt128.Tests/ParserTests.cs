@@ -106,12 +106,14 @@ public class ParserTests
         Assert.Equal("A9997", udi.DI!.FacilityIdentificationNumberOfProcessor);
         Assert.Equal("XYZ100", udi.DI!.FacilityDefinedProductCode);
         Assert.Equal("T0479", udi.DI!.ProductDescriptionCode);
+        Assert.Equal("=/A9997XYZ100T0479", udi.DI!.Raw);
         Assert.NotNull(udi.PI.DonationIdentificationNumber);
         Assert.Equal("A9999", udi.PI.DonationIdentificationNumber!.FacilityIdentificationNumber);
         Assert.Equal("000012", udi.PI.ProductDivisions);
         Assert.Equal(new DateTime(2019, 1, 31), udi.PI.ExpirationDate);
         Assert.Null(udi.PI.ProductionDate);
         Assert.Null(udi.PI.LotNumber);
+        Assert.Equal("=A99991712345600=,000012=>019031", udi.PI.Raw);
     }
 
     [Fact]
@@ -124,6 +126,27 @@ public class ParserTests
         Assert.Null(udi.PI.ExpirationDate);
         Assert.Null(udi.PI.ProductionDate);
         Assert.Null(udi.PI.LotNumber);
+        Assert.Equal("=A99991712345600", udi.PI.Raw);
+    }
+
+    [Fact]
+    public void ParseUdiRawReflectsAllFivePiSegmentsInBarcodeOrder()
+    {
+        const string barcode = "=+06000=/A9999XYZ100T0476=,000025=A99971712345600=>019032=}017032&,1000000000000XYZ123";
+        var udi = Isbt128Parser.ParseUdi(barcode);
+        Assert.Equal("=/A9999XYZ100T0476", udi.DI!.Raw);
+        Assert.Equal("=,000025=A99971712345600=>019032=}017032&,1000000000000XYZ123", udi.PI.Raw);
+        Assert.NotEqual(udi.Raw, udi.PI.Raw);
+        Assert.Equal(udi.Raw, "=+06000" + udi.DI!.Raw + udi.PI.Raw);
+    }
+
+    [Fact]
+    public void ParseUdiRawIsNullWhenNoProductionIdentifierSegmentsPresent()
+    {
+        var udi = Isbt128Parser.ParseUdi("=/A9997XYZ100T0479");
+        Assert.NotNull(udi.DI);
+        Assert.Equal("=/A9997XYZ100T0479", udi.DI!.Raw);
+        Assert.Null(udi.PI.Raw);
     }
 
     // ST-017 §4.3.1: BuildUdi is the inverse of ParseUdi — round-trips through both.

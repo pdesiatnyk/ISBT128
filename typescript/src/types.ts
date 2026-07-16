@@ -49,6 +49,8 @@ export interface UdiDeviceIdentifier {
   facilityIdentificationNumberOfProcessor: string;
   facilityDefinedProductCode: string;
   productDescriptionCode: string;
+  /** The raw DI substring (data identifier + content) exactly as it appeared in the barcode. */
+  raw: string;
 }
 
 /** The decoded Donation Identification Number [001], as carried by a UDI Production Identifier. */
@@ -71,6 +73,9 @@ export interface UdiProductionIdentifiers {
   expirationDate?: Date;
   productionDate?: Date;
   lotNumber?: string;
+  /** Concatenation of the raw substrings of whichever PI-contributing segments (DS001/032/004/008/035)
+   * are present, in original barcode order. `undefined` when none are present. */
+  raw?: string;
 }
 
 /** The result of `parseUdi()`: a barcode reshaped into ST-017's UDI grouping of a single Device
