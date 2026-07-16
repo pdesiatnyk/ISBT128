@@ -82,9 +82,13 @@ Date) is inferred rather than explicitly specified in ST-001: `c` counts whole c
 2000 (0 = 2000s), based on the ST-012 §6.2 worked example. This is documented at
 `dateUtils.ts` / `DateUtils.cs`.
 
-Character-set validation (e.g. rejecting a numeric field containing a letter) is not enforced
-per-field; `check()`/`parse()` validate data identifiers, content lengths, variable-length
-headers, and the documented checksums (DIN Type 3 flag, GRID, Basic UDI-DI).
+Character-set validation (e.g. rejecting a numeric field containing a letter) is enforced for the
+UDI-relevant fields — Processor Product Identification Code [034] (FIN(P)/FPC/PDC), the DIN's
+FIN(D)/year/sequence [001], Product Divisions [032], and MPHO Lot Number [035] — on both
+`check()`/`parse()` and `buildUdi()`/`BuildUdi()` (reason code `INVALID_CHARACTER_SET`). It is not
+yet enforced for the remaining, non-UDI data structures; `check()`/`parse()` validate those only by
+data identifier, content length, variable-length headers, and the documented checksums (DIN Type 3
+flag, GRID, Basic UDI-DI).
 
 ## Utility functions (not part of barcode scanning)
 

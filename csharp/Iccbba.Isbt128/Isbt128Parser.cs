@@ -14,6 +14,10 @@ namespace Iccbba.Isbt128
     {
         private static readonly Regex DinAlphanumeric = new Regex("^[A-NP-Z1-9]$", RegexOptions.Compiled);
         private static readonly Regex NonIccbbaLowercase = new Regex("^[a-z]$", RegexOptions.Compiled);
+        // DIN [001] FIN(D) chars 2-3 (ST-017 §3.1 `pppp`, first 2 chars) — excludes `O`.
+        private static readonly Regex DinFinRestAlpha = new Regex("^[A-NP-Z0-9]{2}$", RegexOptions.Compiled);
+        // DIN [001] FIN(D) chars 4-5 / year / sequence (ST-017 §3.1) — numeric only.
+        private static readonly Regex DinNumeric = new Regex("^[0-9]+$", RegexOptions.Compiled);
 
         private static Dictionary<string, object> DecodeDin(string content15)
         {
@@ -123,6 +127,10 @@ namespace Iccbba.Isbt128
                 var contentEnd = contentStart + 15;
                 if (contentEnd > input.Length) throw Fail("TRUNCATED_CONTENT", pos, "DIN [001] content is truncated");
                 var content = input.Substring(contentStart, contentEnd - contentStart);
+                if (!DinFinRestAlpha.IsMatch(content.Substring(1, 2)) || !DinNumeric.IsMatch(content.Substring(3, 10)))
+                {
+                    throw Fail("INVALID_CHARACTER_SET", contentStart, "DIN [001] content contains characters outside its declared character set");
+                }
                 state.Segments.Add(new ParsedSegment
                 {
                     DataStructureNumber = "001", Name = "Donation Identification Number",
@@ -191,6 +199,10 @@ namespace Iccbba.Isbt128
                 var cEnd = cStart + spec3.ContentLength;
                 if (cEnd > input.Length) throw Fail("TRUNCATED_CONTENT", pos, $"{spec3.Name} [{spec3.Number}] content is truncated");
                 var content3 = input.Substring(cStart, cEnd - cStart);
+                if (!spec3.Retired && spec3.Validate != null && !spec3.Validate(content3))
+                {
+                    throw Fail("INVALID_CHARACTER_SET", cStart, $"{spec3.Name} [{spec3.Number}] content contains characters outside its declared character set");
+                }
                 state.Segments.Add(new ParsedSegment
                 {
                     DataStructureNumber = spec3.Number, Name = spec3.Name, DataIdentifier = di, RawContent = content3,
@@ -298,6 +310,10 @@ namespace Iccbba.Isbt128
             var contentEnd2 = contentStart2 + spec.ContentLength;
             if (contentEnd2 > input.Length) throw Fail("TRUNCATED_CONTENT", pos, $"{spec.Name} [{spec.Number}] content is truncated");
             var content2 = input.Substring(contentStart2, contentEnd2 - contentStart2);
+            if (!spec.Retired && spec.Validate != null && !spec.Validate(content2))
+            {
+                throw Fail("INVALID_CHARACTER_SET", contentStart2, $"{spec.Name} [{spec.Number}] content contains characters outside its declared character set");
+            }
             var fields = spec.Retired ? new Dictionary<string, object>() : spec.Decode(content2);
             state.Segments.Add(new ParsedSegment
             {
@@ -487,11 +503,22 @@ namespace Iccbba.Isbt128
             }
         }
 
+        private static void RequireCharset(string value, Regex pattern, string field)
+        {
+            if (!pattern.IsMatch(value))
+            {
+                throw new Isbt128BuildException($"'{value}' contains characters outside its declared character set", field, "INVALID_CHARACTER_SET");
+            }
+        }
+
         private static string EncodeDeviceIdentifier(BuildUdiDeviceIdentifierInput di)
         {
             RequireLength(di.FacilityIdentificationNumberOfProcessor, 5, "DI.FacilityIdentificationNumberOfProcessor");
             RequireLength(di.FacilityDefinedProductCode, 6, "DI.FacilityDefinedProductCode");
             RequireLength(di.ProductDescriptionCode, 5, "DI.ProductDescriptionCode");
+            RequireCharset(di.FacilityIdentificationNumberOfProcessor, Structures.FinPCharset, "DI.FacilityIdentificationNumberOfProcessor");
+            RequireCharset(di.FacilityDefinedProductCode, Structures.FpcCharset, "DI.FacilityDefinedProductCode");
+            RequireCharset(di.ProductDescriptionCode, Structures.PdcCharset, "DI.ProductDescriptionCode");
             return "=/" + di.FacilityIdentificationNumberOfProcessor + di.FacilityDefinedProductCode + di.ProductDescriptionCode;
         }
 
@@ -500,6 +527,11 @@ namespace Iccbba.Isbt128
             RequireLength(din.FacilityIdentificationNumber, 5, "PI.DonationIdentificationNumber.FacilityIdentificationNumber");
             RequireLength(din.Year, 2, "PI.DonationIdentificationNumber.Year");
             RequireLength(din.SequenceNumber, 6, "PI.DonationIdentificationNumber.SequenceNumber");
+            RequireCharset(din.FacilityIdentificationNumber.Substring(0, 1), DinAlphanumeric, "PI.DonationIdentificationNumber.FacilityIdentificationNumber");
+            RequireCharset(din.FacilityIdentificationNumber.Substring(1, 2), DinFinRestAlpha, "PI.DonationIdentificationNumber.FacilityIdentificationNumber");
+            RequireCharset(din.FacilityIdentificationNumber.Substring(3, 2), DinNumeric, "PI.DonationIdentificationNumber.FacilityIdentificationNumber");
+            RequireCharset(din.Year, DinNumeric, "PI.DonationIdentificationNumber.Year");
+            RequireCharset(din.SequenceNumber, DinNumeric, "PI.DonationIdentificationNumber.SequenceNumber");
             var din13 = din.FacilityIdentificationNumber + din.Year + din.SequenceNumber;
             var flag = din.FlagCharacters ?? Checksum.CalculateDinType3Flag(din13);
             RequireLength(flag, 2, "PI.DonationIdentificationNumber.FlagCharacters");
@@ -509,12 +541,14 @@ namespace Iccbba.Isbt128
         private static string EncodeProductDivisions(string divisionCode)
         {
             RequireLength(divisionCode, 6, "PI.ProductDivisions");
+            RequireCharset(divisionCode, Structures.ProductDivisionsCharset, "PI.ProductDivisions");
             return "=," + divisionCode;
         }
 
         private static string EncodeLotNumber(string lotNumber)
         {
             RequireLength(lotNumber, 18, "PI.LotNumber");
+            RequireCharset(lotNumber, Structures.LotNumberCharset, "PI.LotNumber");
             return "&,1" + lotNumber;
         }
 

@@ -3,7 +3,10 @@
  * concatenation rules) plus `check()`/`parse()` — the two public entry points.
  */
 import { Isbt128BuildError, Isbt128ParseError } from './errors.js';
-import { FIXED_STRUCTURES_BY_DI } from './structures.js';
+import {
+  FIXED_STRUCTURES_BY_DI, FIN_P_CHARSET, FPC_CHARSET, PDC_CHARSET,
+  PRODUCT_DIVISIONS_CHARSET, LOT_NUMBER_CHARSET,
+} from './structures.js';
 import { decodeSecContent, isSecText, parseSecText } from './sec.js';
 import {
   describeDimensionSymbol, describeDimensionUnit, applyDimensionDecimalPoint,
@@ -19,6 +22,10 @@ import type {
 
 const DIN_ALPHANUMERIC = /[A-NP-Z1-9]/;
 const NON_ICCBBA_LOWERCASE = /[a-z]/;
+// DIN [001] FIN(D) chars 2-3 (ST-017 §3.1 `pppp`, first 2 chars) — excludes `O`.
+const DIN_FIN_REST_ALPHA = /^[A-NP-Z0-9]{2}$/;
+// DIN [001] FIN(D) chars 4-5 / year / sequence (ST-017 §3.1) — numeric only.
+const DIN_NUMERIC = /^[0-9]+$/;
 
 function decodeDin(content15: string): Record<string, unknown> {
   const alpha = content15[0];
@@ -98,6 +105,9 @@ function scanOne(input: string, state: ScanState): void {
     const contentEnd = contentStart + 15;
     if (contentEnd > input.length) fail('TRUNCATED_CONTENT', pos, 'DIN [001] content is truncated');
     const content = input.slice(contentStart, contentEnd);
+    if (!DIN_FIN_REST_ALPHA.test(content.slice(1, 3)) || !DIN_NUMERIC.test(content.slice(3, 13))) {
+      fail('INVALID_CHARACTER_SET', contentStart, 'DIN [001] content contains characters outside its declared character set');
+    }
     state.segments.push({
       dataStructureNumber: '001', name: 'Donation Identification Number',
       dataIdentifier: input.slice(pos, contentStart), rawContent: content,
@@ -155,6 +165,9 @@ function scanOne(input: string, state: ScanState): void {
     const contentStart = pos + 3, contentEnd = contentStart + spec.contentLength;
     if (contentEnd > input.length) fail('TRUNCATED_CONTENT', pos, `${spec.name} [${spec.number}] content is truncated`);
     const content = input.slice(contentStart, contentEnd);
+    if (!spec.retired && spec.validate && !spec.validate(content)) {
+      fail('INVALID_CHARACTER_SET', contentStart, `${spec.name} [${spec.number}] content contains characters outside its declared character set`);
+    }
     state.segments.push({
       dataStructureNumber: spec.number, name: spec.name, dataIdentifier: di, rawContent: content,
       fields: spec.retired ? {} : spec.decode(content), isRetired: spec.retired, isOpaque: false, standardReference: spec.reference,
@@ -243,6 +256,9 @@ function scanOne(input: string, state: ScanState): void {
   const contentStart = pos + 2, contentEnd = contentStart + spec.contentLength;
   if (contentEnd > input.length) fail('TRUNCATED_CONTENT', pos, `${spec.name} [${spec.number}] content is truncated`);
   const content = input.slice(contentStart, contentEnd);
+  if (!spec.retired && spec.validate && !spec.validate(content)) {
+    fail('INVALID_CHARACTER_SET', contentStart, `${spec.name} [${spec.number}] content contains characters outside its declared character set`);
+  }
   const fields = spec.retired ? {} : spec.decode(content);
   state.segments.push({
     dataStructureNumber: spec.number, name: spec.name, dataIdentifier: di, rawContent: content,
@@ -415,10 +431,19 @@ function requireLength(value: string, length: number, field: string): void {
   }
 }
 
+function requireAlphabet(value: string, pattern: RegExp, field: string): void {
+  if (!pattern.test(value)) {
+    failBuild('INVALID_CHARACTER_SET', field, `'${value}' contains characters outside its declared character set`);
+  }
+}
+
 function encodeDeviceIdentifier(di: BuildUdiDeviceIdentifierInput): string {
   requireLength(di.facilityIdentificationNumberOfProcessor, 5, 'DI.facilityIdentificationNumberOfProcessor');
   requireLength(di.facilityDefinedProductCode, 6, 'DI.facilityDefinedProductCode');
   requireLength(di.productDescriptionCode, 5, 'DI.productDescriptionCode');
+  requireAlphabet(di.facilityIdentificationNumberOfProcessor, FIN_P_CHARSET, 'DI.facilityIdentificationNumberOfProcessor');
+  requireAlphabet(di.facilityDefinedProductCode, FPC_CHARSET, 'DI.facilityDefinedProductCode');
+  requireAlphabet(di.productDescriptionCode, PDC_CHARSET, 'DI.productDescriptionCode');
   return `=/${di.facilityIdentificationNumberOfProcessor}${di.facilityDefinedProductCode}${di.productDescriptionCode}`;
 }
 
@@ -426,6 +451,11 @@ function encodeDonationIdentificationNumber(din: BuildUdiDonationIdentificationN
   requireLength(din.facilityIdentificationNumber, 5, 'PI.donationIdentificationNumber.facilityIdentificationNumber');
   requireLength(din.year, 2, 'PI.donationIdentificationNumber.year');
   requireLength(din.sequenceNumber, 6, 'PI.donationIdentificationNumber.sequenceNumber');
+  requireAlphabet(din.facilityIdentificationNumber.slice(0, 1), DIN_ALPHANUMERIC, 'PI.donationIdentificationNumber.facilityIdentificationNumber');
+  requireAlphabet(din.facilityIdentificationNumber.slice(1, 3), DIN_FIN_REST_ALPHA, 'PI.donationIdentificationNumber.facilityIdentificationNumber');
+  requireAlphabet(din.facilityIdentificationNumber.slice(3, 5), DIN_NUMERIC, 'PI.donationIdentificationNumber.facilityIdentificationNumber');
+  requireAlphabet(din.year, DIN_NUMERIC, 'PI.donationIdentificationNumber.year');
+  requireAlphabet(din.sequenceNumber, DIN_NUMERIC, 'PI.donationIdentificationNumber.sequenceNumber');
   const din13 = `${din.facilityIdentificationNumber}${din.year}${din.sequenceNumber}`;
   const flag = din.flagCharacters ?? calculateDinType3Flag(din13);
   requireLength(flag, 2, 'PI.donationIdentificationNumber.flagCharacters');
@@ -434,11 +464,13 @@ function encodeDonationIdentificationNumber(din: BuildUdiDonationIdentificationN
 
 function encodeProductDivisions(divisionCode: string): string {
   requireLength(divisionCode, 6, 'PI.productDivisions');
+  requireAlphabet(divisionCode, PRODUCT_DIVISIONS_CHARSET, 'PI.productDivisions');
   return `=,${divisionCode}`;
 }
 
 function encodeLotNumber(lotNumber: string): string {
   requireLength(lotNumber, 18, 'PI.lotNumber');
+  requireAlphabet(lotNumber, LOT_NUMBER_CHARSET, 'PI.lotNumber');
   return `&,1${lotNumber}`;
 }
 

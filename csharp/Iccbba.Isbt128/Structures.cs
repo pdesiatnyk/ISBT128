@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace Iccbba.Isbt128
 {
@@ -28,10 +29,22 @@ namespace Iccbba.Isbt128
         public bool Retired { get; set; }
         public string Reference { get; set; }
         public Func<string, Dictionary<string, object>> Decode { get; set; }
+
+        /// <summary>Optional character-set check over the raw content, run before <see cref="Decode"/>.</summary>
+        public Func<string, bool> Validate { get; set; }
     }
 
     public static class Structures
     {
+        /// <summary>
+        /// ST-017 §2.1/§3.2/§3.5 character-set constraints for the UDI-relevant fixed structures.
+        /// <c>O</c> is excluded from FIN(P) (§2.1) to avoid confusion with digit <c>0</c>.
+        /// </summary>
+        public static readonly Regex FinPCharset = new Regex("^[A-NP-Z0-9]{5}$", RegexOptions.Compiled);
+        public static readonly Regex FpcCharset = new Regex("^[A-Z0-9]{6}$", RegexOptions.Compiled);
+        public static readonly Regex PdcCharset = new Regex("^[A-Z0-9]{5}$", RegexOptions.Compiled);
+        public static readonly Regex ProductDivisionsCharset = new Regex("^[A-Z0-9]{6}$", RegexOptions.Compiled);
+        public static readonly Regex LotNumberCharset = new Regex("^[A-Z0-9]{18}$", RegexOptions.Compiled);
         /// <summary>ST-001 §3.1 Table 2 — Product Description Code family selector <c>α</c> (Data Structure 003).</summary>
         private static readonly Dictionary<char, string> ProductFamilyTable = new Dictionary<char, string>
         {
@@ -244,7 +257,12 @@ namespace Iccbba.Isbt128
                     ["time"] = $"{c.Substring(12, 2)}:{c.Substring(14, 2)}",
                 },
             },
-            new StructureSpec { Number = "032", Name = "Product Divisions", Di = "=,", ContentLength = 6, Reference = "ST-001 §2.4.32", Decode = c => new Dictionary<string, object> { ["divisionCode"] = c } },
+            new StructureSpec
+            {
+                Number = "032", Name = "Product Divisions", Di = "=,", ContentLength = 6, Reference = "ST-001 §2.4.32",
+                Decode = c => new Dictionary<string, object> { ["divisionCode"] = c },
+                Validate = c => ProductDivisionsCharset.IsMatch(c),
+            },
             new StructureSpec
             {
                 Number = "033", Name = "Processing Facility Information Code", Di = "&+", ContentLength = 11, Reference = "ST-001 §2.4.33",
@@ -257,8 +275,14 @@ namespace Iccbba.Isbt128
                 {
                     ["facilityIdentificationNumberOfProcessor"] = c.Substring(0, 5), ["facilityDefinedProductCode"] = c.Substring(5, 6), ["productDescriptionCode"] = c.Substring(11, 5),
                 },
+                Validate = c => FinPCharset.IsMatch(c.Substring(0, 5)) && FpcCharset.IsMatch(c.Substring(5, 6)) && PdcCharset.IsMatch(c.Substring(11, 5)),
             },
-            new StructureSpec { Number = "035", Name = "MPHO Lot Number", Di = "&,1", ContentLength = 18, Reference = "ST-001 §2.4.35", Decode = c => new Dictionary<string, object> { ["lotNumber"] = c } },
+            new StructureSpec
+            {
+                Number = "035", Name = "MPHO Lot Number", Di = "&,1", ContentLength = 18, Reference = "ST-001 §2.4.35",
+                Decode = c => new Dictionary<string, object> { ["lotNumber"] = c },
+                Validate = c => LotNumberCharset.IsMatch(c),
+            },
             new StructureSpec { Number = "036", Name = "MPHO Supplemental Identification Number", Di = "&,2", ContentLength = 18, Reference = "ST-001 §2.4.36", Decode = c => new Dictionary<string, object> { ["supplementalId"] = c } },
             new StructureSpec { Number = "037", Name = "Global Registration Identifier for Donors", Di = "&,3", ContentLength = 19, Retired = true, Reference = "ST-001 §2.4.37", Decode = _ => new Dictionary<string, object>() },
             new StructureSpec

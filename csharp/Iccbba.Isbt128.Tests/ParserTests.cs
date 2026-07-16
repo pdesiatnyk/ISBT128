@@ -218,6 +218,154 @@ public class ParserTests
         Assert.Equal("DI.FacilityIdentificationNumberOfProcessor", ex.Field);
     }
 
+    // ST-017 §2.1: FIN(P) excludes 'O' — {A-N, P-Z, 0-9}.
+    [Fact]
+    public void RejectsPpicFinPContainingO()
+    {
+        Assert.Throws<Isbt128ParseException>(() => Isbt128Parser.Parse("=/A999OAB3456T0123"));
+        Assert.False(Isbt128Parser.Check("=/A999OAB3456T0123"));
+    }
+
+    [Fact]
+    public void RejectsPpicFpcContainingLowercaseLetter()
+    {
+        Assert.Throws<Isbt128ParseException>(() => Isbt128Parser.Parse("=/A9997ab3456T0123"));
+    }
+
+    [Fact]
+    public void RejectsPpicPdcContainingLowercaseLetter()
+    {
+        Assert.Throws<Isbt128ParseException>(() => Isbt128Parser.Parse("=/A9997AB3456t0123"));
+    }
+
+    // ST-017 §3.1: DIN FIN(D) chars 2-3 also exclude 'O'.
+    [Fact]
+    public void RejectsDinFinAlphanumericPortionContainingO()
+    {
+        Assert.Throws<Isbt128ParseException>(() => Isbt128Parser.Parse("=A9O991712345600"));
+    }
+
+    [Fact]
+    public void RejectsDinNumericPortionYearContainingLetter()
+    {
+        Assert.Throws<Isbt128ParseException>(() => Isbt128Parser.Parse("=A99991x12345600"));
+    }
+
+    [Fact]
+    public void RejectsProductDivisionsContainingLowercaseLetter()
+    {
+        Assert.Throws<Isbt128ParseException>(() => Isbt128Parser.Parse("=,00001a"));
+    }
+
+    [Fact]
+    public void RejectsLotNumberContainingLowercaseLetter()
+    {
+        Assert.Throws<Isbt128ParseException>(() => Isbt128Parser.Parse("&,1000000000000xYZ123"));
+    }
+
+    private static BuildUdiInput BuildCharsetTestInput()
+    {
+        return new BuildUdiInput
+        {
+            DI = new BuildUdiDeviceIdentifierInput
+            {
+                FacilityIdentificationNumberOfProcessor = "A9997",
+                FacilityDefinedProductCode = "XYZ100",
+                ProductDescriptionCode = "T0479",
+            },
+            PI = new BuildUdiProductionIdentifiersInput
+            {
+                DonationIdentificationNumber = new BuildUdiDonationIdentificationNumberInput
+                {
+                    FacilityIdentificationNumber = "A9999",
+                    Year = "17",
+                    SequenceNumber = "123456",
+                },
+                ProductDivisions = "000012",
+            },
+        };
+    }
+
+    [Fact]
+    public void BuildUdiRejectsFinPContainingO()
+    {
+        var input = BuildCharsetTestInput();
+        input.DI.FacilityIdentificationNumberOfProcessor = "A999O";
+        var ex = Assert.Throws<Isbt128BuildException>(() => Isbt128Parser.BuildUdi(input));
+        Assert.Equal("INVALID_CHARACTER_SET", ex.Reason);
+        Assert.Equal("DI.FacilityIdentificationNumberOfProcessor", ex.Field);
+    }
+
+    [Fact]
+    public void BuildUdiRejectsFpcContainingLowercaseLetter()
+    {
+        var input = BuildCharsetTestInput();
+        input.DI.FacilityDefinedProductCode = "xyz100";
+        var ex = Assert.Throws<Isbt128BuildException>(() => Isbt128Parser.BuildUdi(input));
+        Assert.Equal("INVALID_CHARACTER_SET", ex.Reason);
+        Assert.Equal("DI.FacilityDefinedProductCode", ex.Field);
+    }
+
+    [Fact]
+    public void BuildUdiRejectsPdcContainingLowercaseLetter()
+    {
+        var input = BuildCharsetTestInput();
+        input.DI.ProductDescriptionCode = "t0479";
+        var ex = Assert.Throws<Isbt128BuildException>(() => Isbt128Parser.BuildUdi(input));
+        Assert.Equal("INVALID_CHARACTER_SET", ex.Reason);
+        Assert.Equal("DI.ProductDescriptionCode", ex.Field);
+    }
+
+    [Fact]
+    public void BuildUdiRejectsDinFacilityIdentificationNumberContainingO()
+    {
+        var input = BuildCharsetTestInput();
+        input.PI.DonationIdentificationNumber.FacilityIdentificationNumber = "A9O99";
+        var ex = Assert.Throws<Isbt128BuildException>(() => Isbt128Parser.BuildUdi(input));
+        Assert.Equal("INVALID_CHARACTER_SET", ex.Reason);
+        Assert.Equal("PI.DonationIdentificationNumber.FacilityIdentificationNumber", ex.Field);
+    }
+
+    [Fact]
+    public void BuildUdiRejectsDinYearContainingLetter()
+    {
+        var input = BuildCharsetTestInput();
+        input.PI.DonationIdentificationNumber.Year = "1x";
+        var ex = Assert.Throws<Isbt128BuildException>(() => Isbt128Parser.BuildUdi(input));
+        Assert.Equal("INVALID_CHARACTER_SET", ex.Reason);
+        Assert.Equal("PI.DonationIdentificationNumber.Year", ex.Field);
+    }
+
+    [Fact]
+    public void BuildUdiRejectsDinSequenceNumberContainingLetter()
+    {
+        var input = BuildCharsetTestInput();
+        input.PI.DonationIdentificationNumber.SequenceNumber = "12345x";
+        var ex = Assert.Throws<Isbt128BuildException>(() => Isbt128Parser.BuildUdi(input));
+        Assert.Equal("INVALID_CHARACTER_SET", ex.Reason);
+        Assert.Equal("PI.DonationIdentificationNumber.SequenceNumber", ex.Field);
+    }
+
+    [Fact]
+    public void BuildUdiRejectsProductDivisionsContainingLowercaseLetter()
+    {
+        var input = BuildCharsetTestInput();
+        input.PI.ProductDivisions = "00001a";
+        var ex = Assert.Throws<Isbt128BuildException>(() => Isbt128Parser.BuildUdi(input));
+        Assert.Equal("INVALID_CHARACTER_SET", ex.Reason);
+        Assert.Equal("PI.ProductDivisions", ex.Field);
+    }
+
+    [Fact]
+    public void BuildUdiRejectsLotNumberContainingLowercaseLetter()
+    {
+        var input = BuildCharsetTestInput();
+        input.PI.LotNumber = "00000000000000xyz1";
+        var ex = Assert.Throws<Isbt128BuildException>(() => Isbt128Parser.BuildUdi(input));
+        Assert.Equal("INVALID_CHARACTER_SET", ex.Reason);
+        Assert.Equal("PI.LotNumber", ex.Field);
+    }
+
     // ST-012 §6.2 "Data Matrix symbol 1": DIN + Blood Groups + Product Code + Expiry(+Time) + SEC.
     [Fact]
     public void ParsesDataMatrixSymbol1CompoundMessage()

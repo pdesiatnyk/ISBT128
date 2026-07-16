@@ -24,7 +24,19 @@ export interface StructureSpec {
   retired: boolean;
   reference: string;
   decode: (content: string) => Record<string, unknown>;
+  /** Optional character-set check over the raw content, run before `decode`. */
+  validate?: (content: string) => boolean;
 }
+
+/**
+ * ST-017 §2.1/§3.2/§3.5 character-set constraints for the UDI-relevant fixed structures.
+ * `O` is excluded from FIN(P) (§2.1) to avoid confusion with digit `0`.
+ */
+export const FIN_P_CHARSET = /^[A-NP-Z0-9]{5}$/;
+export const FPC_CHARSET = /^[A-Z0-9]{6}$/;
+export const PDC_CHARSET = /^[A-Z0-9]{5}$/;
+export const PRODUCT_DIVISIONS_CHARSET = /^[A-Z0-9]{6}$/;
+export const LOT_NUMBER_CHARSET = /^[A-Z0-9]{18}$/;
 
 /** ST-001 §3.1 Table 2 — Product Description Code family selector `α` (Data Structure 003). */
 const PRODUCT_FAMILY: Record<string, string> = {
@@ -189,6 +201,7 @@ export const FIXED_STRUCTURES: StructureSpec[] = [
   {
     number: '032', name: 'Product Divisions', di: '=,', contentLength: 6, retired: false, reference: 'ST-001 §2.4.32',
     decode: (c) => ({ divisionCode: c }),
+    validate: (c) => PRODUCT_DIVISIONS_CHARSET.test(c),
   },
   {
     number: '033', name: 'Processing Facility Information Code', di: '&+', contentLength: 11, retired: false, reference: 'ST-001 §2.4.33',
@@ -200,8 +213,13 @@ export const FIXED_STRUCTURES: StructureSpec[] = [
       facilityIdentificationNumberOfProcessor: c.slice(0, 5), facilityDefinedProductCode: c.slice(5, 11),
       productDescriptionCode: c.slice(11, 16),
     }),
+    validate: (c) => FIN_P_CHARSET.test(c.slice(0, 5)) && FPC_CHARSET.test(c.slice(5, 11)) && PDC_CHARSET.test(c.slice(11, 16)),
   },
-  { number: '035', name: 'MPHO Lot Number', di: '&,1', contentLength: 18, retired: false, reference: 'ST-001 §2.4.35', decode: (c) => ({ lotNumber: c }) },
+  {
+    number: '035', name: 'MPHO Lot Number', di: '&,1', contentLength: 18, retired: false, reference: 'ST-001 §2.4.35',
+    decode: (c) => ({ lotNumber: c }),
+    validate: (c) => LOT_NUMBER_CHARSET.test(c),
+  },
   { number: '036', name: 'MPHO Supplemental Identification Number', di: '&,2', contentLength: 18, retired: false, reference: 'ST-001 §2.4.36', decode: (c) => ({ supplementalId: c }) },
   { number: '037', name: 'Global Registration Identifier for Donors', di: '&,3', contentLength: 19, retired: true, reference: 'ST-001 §2.4.37', decode: () => ({}) },
   {

@@ -82,6 +82,12 @@ readable.
 **GTIN** (the number under a supermarket barcode) plays — they identify the *product type*, not
 the individual item.
 
+**Character sets:** each of these three fields is restricted to uppercase letters and digits only
+— no lowercase, no punctuation. `facilityDefinedProductCode` and `productDescriptionCode` allow
+the full `A-Z, 0-9`; `facilityIdentificationNumberOfProcessor` additionally excludes the letter
+`O` (to avoid confusion with digit `0`). `parseUdi()`/`buildUdi()` (and their C# equivalents)
+enforce this and throw with reason `INVALID_CHARACTER_SET` on a violation.
+
 ---
 
 ## 3. `PI` — Production Identifiers (`UdiProductionIdentifiers`)

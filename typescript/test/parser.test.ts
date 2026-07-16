@@ -212,6 +212,117 @@ describe('buildUdi() — ST-017 DI/PI encoding', () => {
   });
 });
 
+describe('parse() — character-set validation (UDI fields)', () => {
+  // ST-017 §2.1: FIN(P) excludes 'O' — {A-N, P-Z, 0-9}.
+  it('rejects a PPIC [034] FIN(P) containing "O"', () => {
+    const barcode = '=/A999OAB3456T0123';
+    expect(() => parse(barcode)).toThrow(Isbt128ParseError);
+    expect(check(barcode)).toBe(false);
+  });
+
+  it('rejects a PPIC [034] FPC containing a lowercase letter', () => {
+    expect(() => parse('=/A9997ab3456T0123')).toThrow(Isbt128ParseError);
+  });
+
+  it('rejects a PPIC [034] PDC containing a lowercase letter', () => {
+    expect(() => parse('=/A9997AB3456t0123')).toThrow(Isbt128ParseError);
+  });
+
+  // ST-017 §3.1: DIN FIN(D) chars 2-3 also exclude 'O'.
+  it('rejects a DIN [001] FIN(D) alphanumeric portion containing "O"', () => {
+    expect(() => parse('=A9O991712345600')).toThrow(Isbt128ParseError);
+  });
+
+  it('rejects a DIN [001] numeric portion (year) containing a letter', () => {
+    expect(() => parse('=A99991x12345600')).toThrow(Isbt128ParseError);
+  });
+
+  it('rejects Product Divisions [032] containing a lowercase letter', () => {
+    expect(() => parse('=,00001a')).toThrow(Isbt128ParseError);
+  });
+
+  it('rejects MPHO Lot Number [035] containing a lowercase letter', () => {
+    expect(() => parse('&,1000000000000xYZ123')).toThrow(Isbt128ParseError);
+  });
+});
+
+describe('buildUdi() — character-set validation', () => {
+  const baseInput = () => ({
+    DI: {
+      facilityIdentificationNumberOfProcessor: 'A9997',
+      facilityDefinedProductCode: 'XYZ100',
+      productDescriptionCode: 'T0479',
+    },
+    PI: {
+      donationIdentificationNumber: {
+        facilityIdentificationNumber: 'A9999',
+        year: '17',
+        sequenceNumber: '123456',
+      },
+      productDivisions: '000012',
+    },
+  });
+
+  function expectBuildCharsetError(input: ReturnType<typeof baseInput>, field: string): void {
+    let caught: unknown;
+    try {
+      buildUdi(input);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(Isbt128BuildError);
+    expect((caught as Isbt128BuildError).reason).toBe('INVALID_CHARACTER_SET');
+    expect((caught as Isbt128BuildError).field).toBe(field);
+  }
+
+  it('rejects a FIN(P) containing "O"', () => {
+    const input = baseInput();
+    input.DI.facilityIdentificationNumberOfProcessor = 'A999O';
+    expectBuildCharsetError(input, 'DI.facilityIdentificationNumberOfProcessor');
+  });
+
+  it('rejects an FPC containing a lowercase letter', () => {
+    const input = baseInput();
+    input.DI.facilityDefinedProductCode = 'xyz100';
+    expectBuildCharsetError(input, 'DI.facilityDefinedProductCode');
+  });
+
+  it('rejects a PDC containing a lowercase letter', () => {
+    const input = baseInput();
+    input.DI.productDescriptionCode = 't0479';
+    expectBuildCharsetError(input, 'DI.productDescriptionCode');
+  });
+
+  it('rejects a DIN facilityIdentificationNumber containing "O"', () => {
+    const input = baseInput();
+    input.PI.donationIdentificationNumber.facilityIdentificationNumber = 'A9O99';
+    expectBuildCharsetError(input, 'PI.donationIdentificationNumber.facilityIdentificationNumber');
+  });
+
+  it('rejects a DIN year containing a letter', () => {
+    const input = baseInput();
+    input.PI.donationIdentificationNumber.year = '1x';
+    expectBuildCharsetError(input, 'PI.donationIdentificationNumber.year');
+  });
+
+  it('rejects a DIN sequenceNumber containing a letter', () => {
+    const input = baseInput();
+    input.PI.donationIdentificationNumber.sequenceNumber = '12345x';
+    expectBuildCharsetError(input, 'PI.donationIdentificationNumber.sequenceNumber');
+  });
+
+  it('rejects Product Divisions containing a lowercase letter', () => {
+    const input = baseInput();
+    input.PI.productDivisions = '00001a';
+    expectBuildCharsetError(input, 'PI.productDivisions');
+  });
+
+  it('rejects a Lot Number containing a lowercase letter', () => {
+    const input = { ...baseInput(), PI: { ...baseInput().PI, lotNumber: '00000000000000xyz1' } };
+    expectBuildCharsetError(input, 'PI.lotNumber');
+  });
+});
+
 describe('parse() — Single European Code (SEC)', () => {
   it('parses the SEC eye-readable text form directly', () => {
     const result = parse('SEC: PL001499Z549917123456 A00T041600320171231');
